@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu>
+    <root name = "功能导航" image = "" clazz = "">
+        <item name = "系统维护" image = "" clazz = "">
+            <item name = "客户维护" image = "" clazz = "CustomerPanel"/>
+            <item name = "供应商维护" image = "" clazz = "cjlists"/>
+        </item>
+        <item name = "菜单2" image = "" clazz = "">
+            <item name = "菜单2子菜单1" image = "" clazz = "cjlists"/>
+        </item>
+    </root>
+</menu>
