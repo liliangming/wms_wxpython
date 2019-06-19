@@ -7,6 +7,17 @@ import math
 import util.QTable as qtable
 import util.SqliteUtil as sqliteUtil
 
+columns = [qtable.CheckBoxColumnDfn(),
+           qtable.ColumnDfn(u'编号', 'customerId', percent=20, type=qtable.TextType(), readonly=True),
+           qtable.ColumnDfn(u'名称', 'customerName', percent=10, type=qtable.TextType(), readonly=True),
+           qtable.ColumnDfn(u'地址', 'customerAddr', percent=None, type=qtable.TextType(), readonly=True),
+           qtable.ColumnDfn(u'电话', 'phoneNumber', percent=10, type=qtable.TextType(), readonly=True),
+           qtable.ColumnDfn(u'邮箱', 'email', percent=20,
+                            type=qtable.TextType(), readonly=True),
+           qtable.ColumnDfn(u'备注', 'remark', percent=10, type=qtable.TextType(), readonly=True),
+           qtable.ColumnDfn(u'录入时间', 'ctime', percent=10, type=qtable.TextType(), readonly=True)
+           ]
+
 
 class CustomerPanel(wx.Panel):
     def __init__(self, parent):
@@ -53,53 +64,6 @@ class CustomerPanel(wx.Panel):
 
         vbox.Add(self.m_grid1, 1, wx.ALL | wx.EXPAND, 5)
 
-        # 翻页栏
-        hbox3 = wx.GridBagSizer(5, 3)
-        page_text1 = wx.StaticText(self, label=u'共')
-        hbox3.Add(page_text1, pos=(0, 1), flag=wx.LEFT, border=10)
-        self.total_record = wx.TextCtrl(self, value="0", size=wx.Size(45, -1), style=wx.TE_READONLY)
-        hbox3.Add(self.total_record, pos=(0, 2), flag=wx.LEFT, border=10)
-        page_text2 = wx.StaticText(self, label=u'条 | 每页')
-        hbox3.Add(page_text2, pos=(0, 3), flag=wx.LEFT, border=10)
-        self.page_size = wx.Choice(self, choices=["20", "50", "100", "200"], size=(45, 25))
-        self.page_size.SetSelection(0)
-        self.page_size.Bind(wx.EVT_CHOICE, self.choice_page_size)
-        hbox3.Add(self.page_size, pos=(0, 4), flag=wx.LEFT, border=10)
-        page_text3 = wx.StaticText(self, label=u'条 | 共')
-        hbox3.Add(page_text3, pos=(0, 5), flag=wx.LEFT, border=10)
-        self.total_page = wx.TextCtrl(self, value="0", size=wx.Size(45, -1), style=wx.TE_READONLY)
-        hbox3.Add(self.total_page, pos=(0, 6), flag=wx.LEFT, border=10)
-        page_text4 = wx.StaticText(self, label=u'页 | 第')
-        hbox3.Add(page_text4, pos=(0, 7), flag=wx.LEFT, border=10)
-        self.cur_page = wx.Choice(self, choices=["1"], size=(-1, 25))
-        self.cur_page.SetSelection(0)
-        self.cur_page.Bind(wx.EVT_CHOICE, self.choice_cur_page)
-        hbox3.Add(self.cur_page, pos=(0, 8), flag=wx.LEFT, border=10)
-        page_text5 = wx.StaticText(self, label=u'页 | ')
-        hbox3.Add(page_text5, pos=(0, 9), flag=wx.LEFT, border=10)
-
-        self.first_button = wx.Button(self, wx.ID_ANY, u"|<<", size=(40, 25))
-        self.first_button.SetToolTipString(u"首页")
-        self.first_button.Bind(wx.EVT_BUTTON, self.button_first_click)
-        hbox3.Add(self.first_button, pos=(0, 10), flag=wx.LEFT, border=10)
-        self.second_button = wx.Button(self, wx.ID_ANY, u"<", size=(40, 25))
-        self.second_button.SetToolTipString(u"上一页")
-        self.second_button.Bind(wx.EVT_BUTTON, self.button_second_click)
-        hbox3.Add(self.second_button, pos=(0, 11), flag=wx.LEFT, border=10)
-        self.third_button = wx.Button(self, wx.ID_ANY, u">", size=(40, 25))
-        self.third_button.SetToolTipString(u"下一页")
-        self.third_button.Bind(wx.EVT_BUTTON, self.button_third_click)
-        hbox3.Add(self.third_button, pos=(0, 12), flag=wx.LEFT, border=10)
-        self.fourth_button = wx.Button(self, wx.ID_ANY, u">>|", size=(40, 25))
-        self.fourth_button.SetToolTipString(u"尾页")
-        self.fourth_button.Bind(wx.EVT_BUTTON, self.button_fourth_click)
-        hbox3.Add(self.fourth_button, pos=(0, 13), flag=wx.LEFT | wx.RIGHT, border=10)
-
-        hbox3.AddGrowableCol(0)
-
-        vbox.Add(hbox3, flag=wx.EXPAND | wx.ALL | wx.ALIGN_CENTER_HORIZONTAL, border=5)
-
-        self.PageBarChange()
         self.DrawTable()
 
         self.SetSizer(vbox)
@@ -107,18 +71,7 @@ class CustomerPanel(wx.Panel):
 
         self.Centre(wx.BOTH)
 
-    def GenCountSql(self, customerName=None, customerPhone=None):
-        sql = "select count(*) as total from customer where 1 = 1"
-        if customerName is not None:
-            sql += " and customer_name like \'%" + customerName + "%\'"
-
-        if customerPhone is not None:
-            sql += " and phone_number = '" + customerPhone + "'"
-
-        print(sql)
-        return sql
-
-    def GenQuerySql(self, curPage=None, customerName=None, customerPhone=None):
+    def GenQuerySql(self, customerName=None, customerPhone=None, offset=None, pageSize=None):
         sql = "select " \
               "0 as selected, " \
               "substr('A00000',0,7-length(customer_id))||customer_id as customerId, " \
@@ -137,120 +90,97 @@ class CustomerPanel(wx.Panel):
         if customerPhone is not None:
             sql += " and phone_number = '" + customerPhone + "'"
 
+        sql += " order by ctime desc"
+
+        if offset is not None and pageSize is not None:
+            sql += " limit " + str(offset) + "," + str(pageSize)
+
         print(sql)
         return sql
 
-    def PageBarChange(self, curPage=None, customerName=None, customerPhone=None):
-        pageSize = self.page_size.GetStringSelection()
-        db = sqliteUtil.EasySqlite()
-        result = db.execute(self.GenCountSql(customerName, customerPhone))
-        total = result[0]["total"]
-        pageTotal = 0
-        if total > 0:
-            pageTotal = math.ceil(total / int(pageSize))
-
-            c = []
-            for i in range(pageTotal):
-                c.append(str(i + 1))
-            self.cur_page.SetItems(c)
-            if curPage is None:
-                curPage = c[0]
-
-        self.total_record.SetValue(str(total))
-        self.total_page.SetValue(str(pageTotal))
-        self.cur_page.SetStringSelection(str(curPage))
-
-        # 当前页是第一页，灰化前一页和首页按钮
-        if curPage is None or int(curPage) <= 1:
-            self.first_button.Enable(False)
-            self.second_button.Enable(False)
-        else:
-            self.first_button.Enable(True)
-            self.second_button.Enable(True)
-
-        # 当前页是最后一页，灰化后一页和尾页按钮
-        if curPage is None or int(curPage) >= int(pageTotal):
-            self.third_button.Enable(False)
-            self.fourth_button.Enable(False)
-        else:
-            self.third_button.Enable(True)
-            self.fourth_button.Enable(True)
-
-    def choice_page_size(self, evt):
-        print("choice_page_size")
-        self.PageBarChange()
-
-    def choice_cur_page(self, evt):
-        print("choice_cur_page")
-        self.PageBarChange(evt.GetString())
-
     def button_add_click(self, evt):
-        print("button_add_click")
         dlg = AddCustomerDialog(None)
         res = dlg.ShowModal()
         if res == wx.ID_OK:
-            self.DrawTable()
+            db = sqliteUtil.EasySqlite()
+            result = db.execute(self.GenQuerySql(offset=0, pageSize=1))
+            self.m_grid1.InsertRows(data=result)
         dlg.Destroy()
+        # wx.MessageBox(u'添加客户成功', u'提示', wx.OK | wx.ICON_INFORMATION)
 
     def button_del_click(self, evt):
-        print("button_del_click")
-        pass
+        rows = self.m_grid1.GetCheckedRows()
+        if not rows:
+            wx.MessageBox(u'请勾选要删除的客户', u'错误', wx.OK | wx.ICON_ERROR)
+            return
+
+        res = wx.MessageBox(u'确认要删除勾选的' + str(len(rows)) + '条数据吗', u'提示', wx.YES_NO | wx.ICON_INFORMATION)
+        if res == wx.NO:
+            return
+        datas = self.m_grid1.GetGridData(rows)
+        sql = "delete from customer where customer_id in ("
+
+        for index, data in enumerate(datas):
+            id = int(data["customerId"].replace("A", ""))
+            sql += " " + str(id)
+            if index < len(datas) - 1:
+                sql += ","
+        sql += ")"
+
+        # 执行删除
+        db = sqliteUtil.EasySqlite()
+        db.execute(sql)
+
+        # 刷新table
+        rows.sort(reverse=True)
+        for row in rows:
+            self.m_grid1.DeleteRows(pos=row)
 
     def button_clear_click(self, evt):
-        print("button_clear_click")
-        pass
+        self.customer_name_text.SetValue("")
+        self.customer_phone_text.SetValue("")
 
     def button_search_click(self, evt):
-        print("button_search_click")
-        pass
+        name = self.customer_name_text.GetValue()
+        phone = self.customer_phone_text.GetValue()
 
-    def button_first_click(self, evt):
-        print("button_first_click")
-        pass
+        if name.strip() == '':
+            name = None
+        if phone.strip() == '':
+            phone = None
 
-    def button_second_click(self, evt):
-        print("button_second_click")
-        pass
-
-    def button_third_click(self, evt):
-        print("button_third_click")
-        pass
-
-    def button_fourth_click(self, evt):
-        print("button_fourth_click")
-        pass
+        db = sqliteUtil.EasySqlite()
+        result = db.execute(self.GenQuerySql(customerName=name, customerPhone=phone))
+        self.m_grid1.ReDrawTable(result)
 
     def DrawTable(self):
-        columns = [qtable.CheckBoxColumnDfn(),
-                   qtable.ColumnDfn(u'编号', 'customerId', percent=20, type=qtable.TextType(), readonly=True),
-                   qtable.ColumnDfn(u'名称', 'customerName', percent=10, type=qtable.TextType(), readonly=True),
-                   qtable.ColumnDfn(u'地址', 'customerAddr', percent=None, type=qtable.TextType(), readonly=True),
-                   qtable.ColumnDfn(u'电话', 'phoneNumber', percent=10, type=qtable.TextType(), readonly=True),
-                   qtable.ColumnDfn(u'邮箱', 'email', percent=20,
-                                    type=qtable.TextType(), readonly=True),
-                   qtable.ColumnDfn(u'备注', 'remark', percent=10, type=qtable.TextType(), readonly=True),
-                   qtable.ColumnDfn(u'录入时间', 'ctime', percent=10, type=qtable.TextType(), readonly=True)
-                   ]
-
-        self.m_grid1.SetRowBackgroundColourChangeEnable(True)
-        # item1 = qtable.MenuBarItem("测试一下", self.Test1)
-        # item2 = qtable.MenuBarItem("测试一下", self.Test1)
-        # item1.AddChild(item2)
-        # item22 = qtable.MenuBarItem("测试一下", self.Test1)
-        # item2.AddChild(item22)
-        # item1.AddChild(qtable.SeparatorItem())
-        # self.m_grid1.AddPopupMenuItem(item1)
-        # item3 = qtable.MenuBarItem("测试两下", self.Test1)
-        # self.m_grid1.AddPopupMenuItem(qtable.SeparatorItem())
-        # self.m_grid1.AddPopupMenuItem(item3)
-        # self.m_grid1.AddHotKey(wx.WXK_F2, self.Test1)
+        # self.m_grid1.SetRowBackgroundColourChangeEnable(True)
+        update_item = qtable.MenuBarItem("查看/修改\tF2", self.update)
+        self.m_grid1.AddPopupMenuItem(update_item)
+        self.m_grid1.AddHotKey(wx.WXK_F2, self.update)
 
         db = sqliteUtil.EasySqlite()
         result = db.execute(self.GenQuerySql())
         self.m_grid1.DrawTable(qtable.GridData(self.m_grid1, columns, result))
 
-    def Test1(self, event):
+    def update(self, event):
         print("Test1")
+        row = self.m_grid1.GetGridCursorRow()
+        if row is None:
+            wx.MessageBox(u'请先点击要查看/编辑的行', u'错误', wx.OK | wx.ICON_ERROR)
+            return
+
+        list = self.m_grid1.GetGridData([row])
+        if list:
+            dlg = UpdateCustomerDialog(None, list[0])
+            res = dlg.ShowModal()
+            if res == wx.ID_OK:
+                db = sqliteUtil.EasySqlite()
+                result = db.execute(self.GenQuerySql(offset=0, pageSize=1))
+                self.m_grid1.InsertRows(data=result)
+            dlg.Destroy()
+        else:
+            wx.MessageBox(u'请先点击要查看/编辑的行', u'错误', wx.OK | wx.ICON_ERROR)
 
 
 class AddCustomerDialog(wx.Dialog):
@@ -258,11 +188,15 @@ class AddCustomerDialog(wx.Dialog):
 
     # ----------------------------------------------------------------------
     def __init__(self, parent):
-        wx.Dialog.__init__(self, parent, size=(600, 500), title="新增客户")
+        wx.Dialog.__init__(self, parent, size=(600, 500), title="新增客户信息")
 
         panel = wx.Panel(self)
-        vbox = wx.BoxSizer(wx.VERTICAL)
-        fgs = wx.FlexGridSizer(5, 2, 9, 25)
+
+        topLbl = wx.StaticText(panel, -1, "基本信息")  # 1 创建窗口部件
+        topLbl.SetFont(wx.Font(18, wx.SWISS, wx.NORMAL, wx.BOLD))
+
+        topLb2 = wx.StaticText(panel, -1, "联系人信息")  # 1 创建窗口部件
+        topLb2.SetFont(wx.Font(18, wx.SWISS, wx.NORMAL, wx.BOLD))
 
         name = wx.StaticText(panel, label=u'客户名称 *')
         addr = wx.StaticText(panel, label=u'客户地址')
@@ -276,6 +210,18 @@ class AddCustomerDialog(wx.Dialog):
         self.tc_email = wx.TextCtrl(panel)
         self.tc_remark = wx.TextCtrl(panel, style=wx.TE_MULTILINE)
 
+        self.add_button = wx.Button(panel, wx.ID_OK, u"添加", size=(70, 25))
+        self.add_button.Bind(wx.EVT_BUTTON, self.button_add_click)
+        self.cancel_button = wx.Button(panel, wx.ID_CANCEL, u"取消", size=(70, 25))
+
+        vbox = wx.BoxSizer(wx.VERTICAL)
+
+        vbox.Add(topLbl, 0, wx.ALL, 5)
+        vbox.Add(wx.StaticLine(panel), 0,
+                 wx.EXPAND | wx.TOP | wx.BOTTOM, 5)
+
+        fgs = wx.FlexGridSizer(5, 2, 9, 25)
+
         fgs.AddMany([(name), (self.tc_name, 1, wx.EXPAND), (addr),
                      (self.tc_addr, 1, wx.EXPAND), (phone), (self.tc_phone, 1, wx.EXPAND),
                      (email), (self.tc_email, 1, wx.EXPAND), (remark),
@@ -286,19 +232,20 @@ class AddCustomerDialog(wx.Dialog):
 
         vbox.Add(fgs, proportion=1, flag=wx.ALL | wx.EXPAND, border=15)
 
-        gSizer = wx.GridBagSizer(5, 3)
+        vbox.Add(topLb2, 0, wx.ALL, 5)
+        vbox.Add(wx.StaticLine(panel), 0,
+                 wx.EXPAND | wx.TOP | wx.BOTTOM, 5)
+        self.m_grid = qtable.QGridTable(panel)
+        vbox.Add(self.m_grid, 1, wx.ALL , 5)
+        self.m_grid.DrawTable(qtable.GridData(self.m_grid, columns, []))
 
-        self.add_button = wx.Button(panel, wx.ID_OK, u"添加", size=(70, 25))
-        gSizer.Add(self.add_button, pos=(1, 1), flag=wx.LEFT | wx.RIGHT, border=10)
-        self.cancel_button = wx.Button(panel, wx.ID_CANCEL, u"取消", size=(70, 25))
-        gSizer.Add(self.cancel_button, pos=(1, 2), flag=wx.LEFT | wx.RIGHT, border=10)
-
-        gSizer.AddGrowableCol(0)
-
-        vbox.Add(gSizer, flag=wx.EXPAND | wx.BOTTOM | wx.ALIGN_CENTER_HORIZONTAL, border=30)
-
-        self.add_button.Bind(wx.EVT_BUTTON, self.button_add_click)
-        # self.cancel_button.Bind(wx.EVT_BUTTON, self.button_cancel_click)
+        btnSizer = wx.BoxSizer(wx.HORIZONTAL)
+        btnSizer.Add((20, 20), 1)
+        btnSizer.Add(self.add_button)
+        btnSizer.Add((20, 20), 1)
+        btnSizer.Add(self.cancel_button)
+        btnSizer.Add((20, 20), 1)
+        vbox.Add(btnSizer, 0, wx.EXPAND | wx.BOTTOM, 15)
 
         panel.SetSizer(vbox)
         self.Center()
@@ -317,5 +264,78 @@ class AddCustomerDialog(wx.Dialog):
             "insert into customer(customer_name, customer_addr, phone_number, email, remark, ctime, cby, utime, uby) values('" + name + "','" + addr + "','" + phone + "','" + email + "','" + remark + "',datetime('now'),'',datetime('now'),'')")
         self.EndModal(wx.ID_OK)
 
-    # def button_cancel_click(self, evt):
-    #     self.Destroy()
+
+class UpdateCustomerDialog(wx.Dialog):
+    """"""
+
+    # ----------------------------------------------------------------------
+    def __init__(self, parent, data):
+        wx.Dialog.__init__(self, parent, size=(600, 500), title="修改客户信息")
+
+        self.data = data
+        panel = wx.Panel(self)
+
+        topLbl = wx.StaticText(panel, -1, "修改客户信息")  # 1 创建窗口部件
+        topLbl.SetFont(wx.Font(18, wx.SWISS, wx.NORMAL, wx.BOLD))
+
+        id = wx.StaticText(panel, label=u'客户编号')
+        name = wx.StaticText(panel, label=u'客户名称 *')
+        addr = wx.StaticText(panel, label=u'客户地址')
+        phone = wx.StaticText(panel, label=u'电话号码')
+        email = wx.StaticText(panel, label=u'电子邮箱')
+        remark = wx.StaticText(panel, label=u'备 注')
+
+        self.tc_id = wx.TextCtrl(panel, value=self.data["customerId"], style=wx.TE_READONLY)
+        self.tc_name = wx.TextCtrl(panel, value=self.data["customerName"])
+        self.tc_addr = wx.TextCtrl(panel, value=self.data["customerAddr"], style=wx.TE_MULTILINE)
+        self.tc_phone = wx.TextCtrl(panel, value=self.data["phoneNumber"])
+        self.tc_email = wx.TextCtrl(panel, value=self.data["email"])
+        self.tc_remark = wx.TextCtrl(panel, value=self.data["remark"], style=wx.TE_MULTILINE)
+
+        self.update_button = wx.Button(panel, wx.ID_OK, u"保存", size=(70, 25))
+        self.cancel_button = wx.Button(panel, wx.ID_CANCEL, u"取消", size=(70, 25))
+
+        self.update_button.Bind(wx.EVT_BUTTON, self.button_update_click)
+
+        vbox = wx.BoxSizer(wx.VERTICAL)
+
+        vbox.Add(topLbl, 0, wx.ALL, 5)
+        vbox.Add(wx.StaticLine(panel), 0,
+                 wx.EXPAND | wx.TOP | wx.BOTTOM, 5)
+
+        fgs = wx.FlexGridSizer(6, 2, 9, 25)
+
+        fgs.AddMany([(id), (self.tc_id, 1, wx.EXPAND), (name), (self.tc_name, 1, wx.EXPAND), (addr),
+                     (self.tc_addr, 1, wx.EXPAND), (phone), (self.tc_phone, 1, wx.EXPAND),
+                     (email), (self.tc_email, 1, wx.EXPAND), (remark),
+                     (self.tc_remark, 1, wx.EXPAND)])
+
+        fgs.AddGrowableRow(5, 1)
+        fgs.AddGrowableCol(1, 1)
+
+        vbox.Add(fgs, proportion=1, flag=wx.ALL | wx.EXPAND, border=15)
+
+        btnSizer = wx.BoxSizer(wx.HORIZONTAL)
+        btnSizer.Add((20, 20), 1)
+        btnSizer.Add(self.update_button)
+        btnSizer.Add((20, 20), 1)
+        btnSizer.Add(self.cancel_button)
+        btnSizer.Add((20, 20), 1)
+        vbox.Add(btnSizer, 0, wx.EXPAND | wx.BOTTOM, 15)
+
+        panel.SetSizer(vbox)
+        self.Center()
+
+    def button_update_click(self, evt):
+        name = self.tc_name.GetValue()
+        if name.strip() == '':
+            wx.MessageBox(u'请输入客户名称', u'错误', wx.OK | wx.ICON_ERROR)
+            return
+        addr = self.tc_addr.GetValue()
+        phone = self.tc_phone.GetValue()
+        email = self.tc_email.GetValue()
+        remark = self.tc_remark.GetValue()
+        db = sqliteUtil.EasySqlite()
+        db.execute(
+            "insert into customer(customer_name, customer_addr, phone_number, email, remark, ctime, cby, utime, uby) values('" + name + "','" + addr + "','" + phone + "','" + email + "','" + remark + "',datetime('now'),'',datetime('now'),'')")
+        self.EndModal(wx.ID_OK)

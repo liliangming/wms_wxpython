@@ -56,6 +56,81 @@ class QGridTable(gridlib.Grid):
     def SetRowBackgroundColourChangeEnable(self, enable):
         self._rowBackgroundColourChange = enable
 
+    def SetCheckedRows(self, rows=None, checked=True):
+        if self._fields.__contains__("selected"):
+            col = self._fields["selected"][0]
+            if rows:
+                for row in rows:
+                    self._gridData.gridData[row]["selected"] = int(checked)
+                    self.SetCellValue(row, col, str(int(checked)))
+            else:
+                for row, item in enumerate(self._gridData.gridData):
+                    self._gridData.gridData[row]["selected"] = int(checked)
+                    self.SetCellValue(row, col, str(int(checked)))
+
+    def GetCheckedRows(self):
+        rows = []
+        for row, item in enumerate(self._gridData.gridData):
+            if item["selected"]:
+                rows.append(row)
+
+        return rows
+
+    def GetGridData(self, rows=[]):
+        data = []
+        if rows:
+            for row in rows:
+                data.append(self._gridData.gridData[row])
+        return data
+
+    def DeleteRows(self, pos=0, numRows=1, updateLabels=True):
+        success = super().DeleteRows(pos, numRows, updateLabels)
+        if success:
+            for index in range(numRows):
+                row = pos + index
+                self._gridData.gridData.pop(row)
+
+    def InsertRows(self, pos=0, numRows=1, updateLabels=True, data=None):
+        success = super().InsertRows(pos, numRows, updateLabels)
+        if success:
+            for index in range(numRows):
+                row = pos + index
+                self.ForceRefresh()
+                self.FormatRows(row)
+                self.SetGridCursor(row, 0)
+                self.MakeCellVisible(row, 0)
+                if data is not None and len(data) > index:
+                    self._gridData.gridData.insert(row, data[index])
+                    self.FillRowData(row)
+        return success
+
+    def AppendRows(self, numRows=1, updateLabels=True, data=None):
+        newRow = self.GetTable().GetNumberRows()
+        success = super().AppendRows(numRows, updateLabels)
+        if success:
+            for index in range(numRows):
+                row = newRow + index
+                self.ForceRefresh()
+                self.FormatRows(row)
+                self.SetGridCursor(row, 0)
+                self.MakeCellVisible(row, 0)
+                if data is not None and len(data) > index:
+                    self._gridData.gridData.insert(row, data[index])
+                    for col in range(self._gridData.GetNumCols()):
+                        self.SetCellValue(row, col, self._gridData.GetFormartValue(col))
+        return success
+
+    def ReDrawTable(self, data):
+        if self.GetNumberRows() > 0:
+            super().DeleteRows(0, self.GetNumberRows())
+        if len(data) > 0:
+            self.AppendRows(len(data))
+
+        # 重新填充数据
+        self._gridData.SetData(data)
+        for row, item in enumerate(data):
+            self.FillRowData(row)
+
     def DrawTable(self, rowdata):
         self._gridData = rowdata
         numCols = self._gridData.GetNumCols()
@@ -65,19 +140,19 @@ class QGridTable(gridlib.Grid):
         self.ParseColumns()
         self.SetRowLabelSize(40)
         if numRows > 0:
-            self._rowHeight = int(self.GetRowSize(1) * self._rowHeightRatio)
+            self._rowHeight = int(self.GetRowSize(0) * self._rowHeightRatio)
         self.CreatePopupMenu()
 
         for row in range(numRows):
             self.FormatRows(row)
 
-        # if self._rowBackgroundColourChange:
-        #     for row in range(numRows):
-        #         print(row)
-        #         if row % 2 == 1:
-        #             self.SetRowAttr(row, self._oddRowBackgroundColour)
-        #         else:
-        #             self.SetRowAttr(row, self._evenRowBackgroundColour)
+        if self._rowBackgroundColourChange:
+            for row in range(numRows):
+                print(row)
+                if row % 2 == 1:
+                    self.SetRowAttr(row, self._oddRowBackgroundColour)
+                else:
+                    self.SetRowAttr(row, self._evenRowBackgroundColour)
 
         # 非固定宽度的列，支持根据窗口大小调整宽度
         if len(self._unknownSize) or len(self._percentSize):
@@ -85,9 +160,7 @@ class QGridTable(gridlib.Grid):
 
         # 填充数据
         for row in range(numRows):
-            self._gridData.row = row
-            for col in range(numCols):
-                self.SetCellValue(row, col, self._gridData.GetFormartValue(col))
+            self.FillRowData(row)
 
         # implement all the events
         # 左单击
@@ -122,6 +195,11 @@ class QGridTable(gridlib.Grid):
 
         self.ForceRefresh()
 
+    def FillRowData(self, row):
+        self._gridData.row = row
+        for col, item in enumerate(self._gridData.GetColumnDfns()):
+            self.SetCellValue(row, col, self._gridData.GetFormartValue(col))
+
     def ParseColumns(self):
         for col, item in enumerate(self._gridData.GetColumnDfns()):
             self._fields[item.field] = (col, item)
@@ -137,8 +215,9 @@ class QGridTable(gridlib.Grid):
                 self._autoSize.append(col)
 
     def FormatRows(self, row):
-        # self.SetRowSize(row, self.height_row)
-        self.SetRowSize(row, self._rowHeight)
+        if self._rowHeight:
+            self.SetRowSize(row, self._rowHeight)
+
         for col, item in enumerate(self._gridData.GetColumnDfns()):
             self.SetCellRenderer(row, col, item.type.renderer())
             if item.type.editor() and item.readonly is False:
@@ -293,9 +372,11 @@ class QGridTable(gridlib.Grid):
                       gridlib.GridCellBoolRenderer) and not self.IsReadOnly(evt.GetRow(), evt.GetCol()):
             value = self.GetCellValue(evt.GetRow(), evt.GetCol())
             if not bool(value) or value == "0":
-                self.SetCellValue(evt.GetRow(), evt.GetCol(), "1")
+                # self.SetCellValue(evt.GetRow(), evt.GetCol(), "1")
+                self.SetCheckedRows([evt.GetRow()], True)
             else:
-                self.SetCellValue(evt.GetRow(), evt.GetCol(), "0")
+                # self.SetCellValue(evt.GetRow(), evt.GetCol(), "0")
+                self.SetCheckedRows([evt.GetRow()], False)
         else:
             evt.Skip()
 
@@ -353,9 +434,11 @@ class QGridTable(gridlib.Grid):
                       gridlib.GridCellBoolRenderer) and not self.IsReadOnly(evt.GetRow(), evt.GetCol()):
             value = self.GetCellValue(evt.GetRow(), evt.GetCol())
             if not bool(value) or value == "0":
-                self.SetCellValue(evt.GetRow(), evt.GetCol(), "1")
+                # self.SetCellValue(evt.GetRow(), evt.GetCol(), "1")
+                self.SetCheckedRows([evt.GetRow()], True)
             else:
-                self.SetCellValue(evt.GetRow(), evt.GetCol(), "0")
+                # self.SetCellValue(evt.GetRow(), evt.GetCol(), "0")
+                self.SetCheckedRows([evt.GetRow()], False)
         else:
             evt.Skip()
 
@@ -389,8 +472,7 @@ class QGridTable(gridlib.Grid):
                 self._gridData.GetColumnDfns()[
                     evt.GetCol()].readonly:
             self._checkBox = not self._checkBox
-            for row in range(self._gridData.GetNumRows()):
-                self.SetCellValue(row, evt.GetCol(), str(int(self._checkBox)))
+            self.SetCheckedRows(checked=self._checkBox)
         print("OnGridColSort: %s %s" % (evt.GetCol(), self.GetSortingColumn()))
         self.SetSortingColumn(evt.GetCol())
         evt.Skip()
@@ -432,17 +514,17 @@ class QGridTable(gridlib.Grid):
               (msg, evt.GetRow(), evt.GetCol(), evt.GetPosition()))
 
         # Another way to stay in a cell that has a bad value...
-        row = self.GetGridCursorRow()
-        col = self.GetGridCursorCol()
-
-        if self.IsCellEditControlEnabled():
-            self.HideCellEditControl()
-            self.DisableCellEditControl()
-
-        value = self.GetCellValue(row, col)
-
-        if value == 'no good 2':
-            return  # cancels the cell selection
+        # row = self.GetGridCursorRow()
+        # col = self.GetGridCursorCol()
+        #
+        # if self.IsCellEditControlEnabled():
+        #     self.HideCellEditControl()
+        #     self.DisableCellEditControl()
+        #
+        # value = self.GetCellValue(row, col)
+        #
+        # if value == 'no good 2':
+        #     return  # cancels the cell selection
 
         evt.Skip()
 
@@ -690,8 +772,11 @@ class GridData(dict):
     def GetColumnDfns(self):
         return self.columns
 
-    def GetGridData(self):
+    def GetData(self):
         return self.gridData
+
+    def SetData(self, date):
+        self.gridData = date
 
     def GetNumRows(self):
         return len(self.gridData)
