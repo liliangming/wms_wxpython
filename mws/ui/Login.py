@@ -1,21 +1,22 @@
 import wx
+import os
 from ui.MainFrame import MainFrame
+import util.SqliteUtil as sqliteUtil
 
 ###################################################################
 # 登录界面
 ###################################################################
 
-login_title_text = "登陆"
-user_name_text = "用户名："
-password_text = "  密码："
-button_ok_text = "确定"
-button_clear_text = "清除"
+login_title_text = "欢迎使用商品信息管理系统"
+user_name_text = "账 号："
+password_text = "密 码："
+button_ok_text = "登录"
 button_exit_text = "退出"
 
 
 class LoginFrame(wx.Frame):
     def __init__(self, parent):
-        wx.Frame.__init__(self, parent, id=wx.ID_ANY, title=login_title_text, pos=wx.DefaultPosition,
+        wx.Frame.__init__(self, parent, id=wx.ID_ANY, title="商品信息管理系统", pos=wx.DefaultPosition,
                           size=wx.Size(774, 340),
                           style=wx.DEFAULT_FRAME_STYLE | wx.TAB_TRAVERSAL)
 
@@ -27,7 +28,7 @@ class LoginFrame(wx.Frame):
         self.loginTitle = wx.StaticText(self, wx.ID_ANY, login_title_text, wx.Point(1000, 1000), wx.Size(1500, 100),
                                         wx.ALIGN_CENTRE)
         self.loginTitle.Wrap(-1)
-        self.loginTitle.SetFont(wx.Font(50, 70, 90, 90, False, wx.EmptyString))
+        self.loginTitle.SetFont(wx.Font(45, 70, 90, 90, False, wx.EmptyString))
         self.loginTitle.SetForegroundColour(wx.Colour(255, 0, 128))
         self.loginTitle.SetBackgroundColour(wx.Colour(146, 215, 252))
 
@@ -42,14 +43,14 @@ class LoginFrame(wx.Frame):
         self.user_name = wx.StaticText(self, wx.ID_ANY, user_name_text, wx.DefaultPosition, wx.Size(150, 30),
                                        wx.ALIGN_RIGHT)
         self.user_name.Wrap(-1)
-        self.user_name.SetFont(wx.Font(20, 71, 90, 92, False, wx.EmptyString))
+        self.user_name.SetFont(wx.Font(20, wx.DEFAULT, wx.NORMAL, wx.BOLD, False, wx.EmptyString))
 
         bSizer3.Add(self.user_name, 0, wx.ALL | wx.ALIGN_RIGHT, 5)
 
         self.pswd = wx.StaticText(self, wx.ID_ANY, password_text, wx.DefaultPosition, wx.Size(150, 30),
                                   wx.ALIGN_RIGHT)
         self.pswd.Wrap(-1)
-        self.pswd.SetFont(wx.Font(20, 71, 90, 92, False, wx.EmptyString))
+        self.pswd.SetFont(wx.Font(20, wx.DEFAULT, wx.NORMAL, wx.BOLD, False, wx.EmptyString))
 
         bSizer3.Add(self.pswd, 0, wx.ALL | wx.ALIGN_RIGHT, 5)
 
@@ -70,16 +71,15 @@ class LoginFrame(wx.Frame):
 
         bSizer2.Add(gSizer1, 1, wx.EXPAND, 5)
 
-        gSizer2 = wx.GridSizer(1, 3, 0, 0)
+        gSizer2 = wx.GridSizer(1, 2, 0, 0)
 
         self.button_ok = wx.Button(self, wx.ID_ANY, button_ok_text, wx.DefaultPosition, wx.DefaultSize, 0)
-        gSizer2.Add(self.button_ok, 0, wx.ALL | wx.ALIGN_RIGHT, 5)
-
-        self.button_clear = wx.Button(self, wx.ID_ANY, button_clear_text, wx.DefaultPosition, wx.DefaultSize, 0)
-        gSizer2.Add(self.button_clear, 0, wx.ALL | wx.ALIGN_CENTER_HORIZONTAL, 5)
+        self.button_ok.SetFont(wx.Font(15, wx.DEFAULT, wx.NORMAL, wx.NORMAL, False, wx.EmptyString))
+        gSizer2.Add(self.button_ok, 0, wx.ALL | wx.ALIGN_RIGHT, 40)
 
         self.button_exit = wx.Button(self, wx.ID_ANY, button_exit_text, wx.DefaultPosition, wx.DefaultSize, 0)
-        gSizer2.Add(self.button_exit, 0, wx.TOP | wx.BOTTOM | wx.RIGHT, 5)
+        self.button_exit.SetFont(wx.Font(15, wx.DEFAULT, wx.NORMAL, wx.NORMAL, False, wx.EmptyString))
+        gSizer2.Add(self.button_exit, 0, wx.TOP | wx.BOTTOM | wx.LEFT, 40)
 
         bSizer2.Add(gSizer2, 1, wx.EXPAND, 1)
 
@@ -92,7 +92,6 @@ class LoginFrame(wx.Frame):
 
         # Connect Events
         self.button_ok.Bind(wx.EVT_BUTTON, self.button_ok_click)
-        self.button_clear.Bind(wx.EVT_BUTTON, self.button_clear_click)
         self.button_exit.Bind(wx.EVT_BUTTON, self.button_exit_click)
 
     def __del__(self):
@@ -100,13 +99,27 @@ class LoginFrame(wx.Frame):
 
     # Virtual event handlers, overide them in your derived class
     def button_ok_click(self, event):
-        self.Destroy()
-        main_frame = MainFrame(None)
-        main_frame.Show(True)
+        user_id = self.login_text_id.GetValue()
+        password = self.login_text_password.GetValue()
+        user_id = "admin"
+        password = "admin"
+        if user_id.strip() == '':
+            wx.MessageBox(u'请输入账号', u'错误', wx.OK | wx.ICON_ERROR)
+            return
 
-    def button_clear_click(self, event):
-        self.login_text_id.Clear()
-        self.login_text_password.Clear()
+        if password.strip() == '':
+            wx.MessageBox(u'请输入密码', u'错误', wx.OK | wx.ICON_ERROR)
+            return
+
+        db = sqliteUtil.EasySqlite()
+        result = db.execute(
+            "select id as userId, ifnull(nickname,id) as nickname, datetime('now') as loginTime from user where id=\'" + user_id + "\' and pwd=\'" + password + "\'")
+        if len(result) == 0:
+            wx.MessageBox(u'账号或密码错误', u'错误', wx.OK | wx.ICON_ERROR)
+        else:
+            self.Destroy()
+            main_frame = MainFrame(None, result[0])
+            main_frame.Show(True)
 
     def button_exit_click(self, event):
         self.Destroy()

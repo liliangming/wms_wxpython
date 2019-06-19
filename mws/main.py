@@ -1,5 +1,6 @@
 import wx
-from ui.Welcome import WelcomeFrame
+
+from ui.Login import LoginFrame
 
 
 ###################################################################
@@ -8,7 +9,7 @@ from ui.Welcome import WelcomeFrame
 
 def main():
     app = wx.App(False)
-    frame = WelcomeFrame(None, title="sdsd", size=wx.Size(1078, 679))
+    frame = LoginFrame(None)
     frame.Show(True)
     # start the applications
     app.MainLoop()

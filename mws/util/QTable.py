@@ -61,20 +61,23 @@ class QGridTable(gridlib.Grid):
         numCols = self._gridData.GetNumCols()
         numRows = self._gridData.GetNumRows()
         self.CreateGrid(numRows, numCols)
-        self._rowHeight = int(self.GetRowSize(1) * self._rowHeightRatio)
+
         self.ParseColumns()
         self.SetRowLabelSize(40)
+        if numRows > 0:
+            self._rowHeight = int(self.GetRowSize(1) * self._rowHeightRatio)
         self.CreatePopupMenu()
 
         for row in range(numRows):
             self.FormatRows(row)
 
-        if self._rowBackgroundColourChange:
-            for row in range(numRows):
-                if row % 2 == 1:
-                    self.SetRowAttr(row, self._oddRowBackgroundColour)
-                else:
-                    self.SetRowAttr(row, self._evenRowBackgroundColour)
+        # if self._rowBackgroundColourChange:
+        #     for row in range(numRows):
+        #         print(row)
+        #         if row % 2 == 1:
+        #             self.SetRowAttr(row, self._oddRowBackgroundColour)
+        #         else:
+        #             self.SetRowAttr(row, self._evenRowBackgroundColour)
 
         # 非固定宽度的列，支持根据窗口大小调整宽度
         if len(self._unknownSize) or len(self._percentSize):
@@ -84,7 +87,7 @@ class QGridTable(gridlib.Grid):
         for row in range(numRows):
             self._gridData.row = row
             for col in range(numCols):
-                self.SetCellValue(row, col, self._gridData.GetValue(col))
+                self.SetCellValue(row, col, self._gridData.GetFormartValue(col))
 
         # implement all the events
         # 左单击
@@ -667,6 +670,13 @@ class GridData(dict):
         item = self.columns[col]
         if self.gridData[self.row].keys().__contains__(item.field):
             return self.gridData[row][item.field]
+        else:
+            return None
+
+    def GetFormartValue(self, col):
+        item = self.columns[col]
+        if self.gridData[self.row].keys().__contains__(item.field):
+            return item.type.toStr(self.gridData[self.row][item.field])
         else:
             return None
 

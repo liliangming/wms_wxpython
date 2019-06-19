@@ -19,9 +19,11 @@ tree_item_instance_key = "item"
 
 
 class MainFrame(wx.Frame):
-    def __init__(self, parent):
+    def __init__(self, parent, user):
         wx.Frame.__init__(self, parent, id=wx.ID_ANY, title="sdsdsd", pos=wx.DefaultPosition, size=wx.Size(1078, 800),
                           style=wx.DEFAULT_FRAME_STYLE | wx.TAB_TRAVERSAL)
+        self.user = user
+
         self.SetSizeHintsSz(wx.DefaultSize, wx.DefaultSize)
         self.SetForegroundColour(wx.SystemSettings.GetColour(wx.SYS_COLOUR_WINDOWFRAME))
         self.SetBackgroundColour(wx.Colour(204, 232, 207))
@@ -66,8 +68,8 @@ class MainFrame(wx.Frame):
         status = wx.StatusBar(self, -1)  # 实例化 wx.StatusBar
         status.SetFieldsCount(3)  # 状态栏分成3个区域
         status.SetStatusWidths([-2, -1, -1])  # 区域宽度比列，用负数
-        status.SetStatusText("当前用户：admin", 1)  # 给状态栏设文字
-        status.SetStatusText("登录时间：2017-01-01 12:30:32", 2)  # 给状态栏设文字
+        status.SetStatusText("当前用户：" + self.user["nickname"], 1)  # 给状态栏设文字
+        status.SetStatusText("登录时间：" + self.user["loginTime"], 2)  # 给状态栏设文字
         self.SetStatusBar(status)  # 将状态栏附加到框架上
 
     def on_click(self, event):
