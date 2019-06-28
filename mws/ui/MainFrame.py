@@ -2,8 +2,14 @@ import wx
 import wx.aui
 import xml.dom.minidom as xmldom
 import os
+
 from ui.test.Test import cjlists
 from ui.Customer import CustomerPanel
+from ui.Supplier import SupplierPanel
+from ui.Dictionary import DictionaryPanel
+from ui.StoreHouse import StoreHousePanel
+from ui.StoreHouseLocation import StoreHouseLocationPanel
+from ui.Product import ProductPanel
 
 welcome_content = "商品信息管理系统"
 login_content = "登陆"

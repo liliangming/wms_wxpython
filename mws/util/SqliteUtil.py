@@ -12,6 +12,7 @@ class EasySqlite:
     def __init__(self, database=None):
         # 连接数据库
         if database is None:
+            print(os.path.dirname(os.path.abspath(__file__)))
             database = os.path.abspath('./data/data.db')
         self._connection = sqlite3.connect(database)
 

@@ -2,11 +2,24 @@
 <menu>
     <root name = "功能导航" image = "" clazz = "">
         <item name = "系统维护" image = "" clazz = "">
+            <item name = "产品维护" image = "" clazz = "ProductPanel"/>
             <item name = "客户维护" image = "" clazz = "CustomerPanel"/>
-            <item name = "供应商维护" image = "" clazz = "cjlists"/>
+            <item name = "供应商维护" image = "" clazz = "SupplierPanel"/>
+            <item name = "字典维护" image = "" clazz = "DictionaryPanel"/>
         </item>
-        <item name = "菜单2" image = "" clazz = "">
-            <item name = "菜单2子菜单1" image = "" clazz = "cjlists"/>
+        <item name = "仓库维护" image = "" clazz = "">
+            <item name = "仓库维护" image = "" clazz = "StoreHousePanel"/>
+            <item name = "库位维护" image = "" clazz = "StoreHouseLocationPanel"/>
+        </item>
+        <item name = "系统作业" image = "" clazz = "">
+            <item name = "出库作业" image = "" clazz = "cjlists"/>
+            <item name = "入库作业" image = "" clazz = "cjlists"/>
+            <item name = "库存查询" image = "" clazz = "cjlists"/>
+            <item name = "库存调拨" image = "" clazz = "cjlists"/>
+            <item name = "库存盘点" image = "" clazz = "cjlists"/>
+        </item>
+        <item name = "系统报表" image = "" clazz = "">
+            <item name = "出库报表" image = "" clazz = "cjlists"/>
         </item>
     </root>
 </menu>

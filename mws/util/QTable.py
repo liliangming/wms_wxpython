@@ -21,10 +21,9 @@ class QGridTable(gridlib.Grid):
         self._rowHeight = None
         self._rowHeightRatio = 1
         self._rowBackgroundColourChange = False
-        self._oddRowBackgroundColour = gridlib.GridCellAttr()
-        self._oddRowBackgroundColour.SetBackgroundColour(wx.Colour(245, 245, 245))
-        self._evenRowBackgroundColour = gridlib.GridCellAttr()
-        self._evenRowBackgroundColour.SetBackgroundColour(wx.Colour(255, 255, 255))
+        self._oddRowColour = wx.Colour(245, 245, 245)
+        self._evenRowColour = wx.Colour(255, 255, 255)
+        self._invalidRowColour = wx.Colour(192, 192, 192)
         self._popupMenu = None
         self._copy = True
         self._paste = True
@@ -76,7 +75,10 @@ class QGridTable(gridlib.Grid):
 
         return rows
 
-    def GetGridData(self, rows=[]):
+    def GetGridData(self, all=False, rows=[]):
+        if all:
+            return self._gridData.gridData
+
         data = []
         if rows:
             for row in rows:
@@ -89,6 +91,14 @@ class QGridTable(gridlib.Grid):
             for index in range(numRows):
                 row = pos + index
                 self._gridData.gridData.pop(row)
+
+    def RefreshRows(self, rows=[], data=[]):
+        if rows:
+            for index, row in enumerate(rows):
+                if data and len(data) > index:
+                    self._gridData.gridData.pop(row)
+                    self._gridData.gridData.insert(row, data[index])
+                    self.FillRowData(row)
 
     def InsertRows(self, pos=0, numRows=1, updateLabels=True, data=None):
         success = super().InsertRows(pos, numRows, updateLabels)
@@ -146,14 +156,6 @@ class QGridTable(gridlib.Grid):
         for row in range(numRows):
             self.FormatRows(row)
 
-        if self._rowBackgroundColourChange:
-            for row in range(numRows):
-                print(row)
-                if row % 2 == 1:
-                    self.SetRowAttr(row, self._oddRowBackgroundColour)
-                else:
-                    self.SetRowAttr(row, self._evenRowBackgroundColour)
-
         # 非固定宽度的列，支持根据窗口大小调整宽度
         if len(self._unknownSize) or len(self._percentSize):
             self.Bind(wx.EVT_SIZE, self.OnSize)
@@ -197,8 +199,20 @@ class QGridTable(gridlib.Grid):
 
     def FillRowData(self, row):
         self._gridData.row = row
+        # 包含状态字段，并且为失效状态
+        invalid = self._gridData.gridData[row].keys().__contains__("status") and not bool(
+            self._gridData.gridData[row]["status"])
+
         for col, item in enumerate(self._gridData.GetColumnDfns()):
             self.SetCellValue(row, col, self._gridData.GetFormartValue(col))
+            if invalid:
+                self.SetCellBackgroundColour(row, col, self._invalidRowColour)
+            elif self._rowBackgroundColourChange and row % 2 == 1:
+                self.SetCellBackgroundColour(row, col, self._oddRowColour)
+            elif self._rowBackgroundColourChange and row % 2 == 0:
+                self.SetCellBackgroundColour(row, col, self._evenRowColour)
+            else:
+                self.SetCellBackgroundColour(row, col, None)
 
     def ParseColumns(self):
         for col, item in enumerate(self._gridData.GetColumnDfns()):

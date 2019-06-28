@@ -1,5 +1,5 @@
 #############################
-# 客户维护
+# 供应商维护
 #############################
 
 import wx
@@ -7,10 +7,9 @@ import util.QTable as qtable
 import util.SqliteUtil as sqliteUtil
 
 columns = [qtable.CheckBoxColumnDfn(),
-           qtable.ColumnDfn(u'编号', 'customerId', size=60, type=qtable.TextType(), readonly=True),
-           qtable.ColumnDfn(u'名称', 'customerName', percent=10, type=qtable.TextType(), readonly=True),
-           qtable.ColumnDfn(u'客户类型', 'customerTypeName', percent=10, type=qtable.TextType(), readonly=True),
-           qtable.ColumnDfn(u'地址', 'customerAddr', percent=20, type=qtable.TextType(), readonly=True),
+           qtable.ColumnDfn(u'编号', 'supplierId', size=60, type=qtable.TextType(), readonly=True),
+           qtable.ColumnDfn(u'名称', 'supplierName', percent=10, type=qtable.TextType(), readonly=True),
+           qtable.ColumnDfn(u'地址', 'supplierAddr', percent=20, type=qtable.TextType(), readonly=True),
            qtable.ColumnDfn(u'电话', 'phoneNumber', percent=10, type=qtable.TextType(), readonly=True),
            qtable.ColumnDfn(u'邮箱', 'email', percent=10,
                             type=qtable.TextType(), readonly=True),
@@ -19,77 +18,24 @@ columns = [qtable.CheckBoxColumnDfn(),
            ]
 YES_NO = 1
 SAVE_NO = 2
-CUSTOMER_TYPE_VALUE = "客户类型"
 
 
-def GetCustomerTypeDict():
-    dic = {}
-    db = sqliteUtil.EasySqlite()
-    result = db.execute(
-        " select t1.dic_key as key, t1.dic_value as value "
-        " from sys_dictionary t1 "
-        " inner join sys_dictionary t2 "
-        " on t2.dic_key = t1.dic_type "
-        " where t2.dic_type = ?"
-        " and t2.dic_value = ? "
-        " and t1.status = 1 "
-        " order by t1.dic_key",
-        ["_$1", CUSTOMER_TYPE_VALUE])
-    for e in result:
-        dic[e["key"]] = e["value"]
-
-    return dic
-
-
-def GetDicTypeByName(dict, name):
-    for dicType in dict.items():
-        if dicType[1] == name:
-            return dicType[0]
-
-    return None
-
-
-def GetDicTypeNameByType(dict, type):
-    for dicType in dict.items():
-        if dicType[0] == type:
-            return dicType[1]
-
-    return None
-
-
-def GetDicTypeChoice(dict, blank=True):
-    list = []
-    if blank:
-        list.append("")
-
-    for dicType in dict.items():
-        list.append(dicType[1])
-
-    return list
-
-
-class CustomerPanel(wx.Panel):
+class SupplierPanel(wx.Panel):
     def __init__(self, parent):
         wx.Panel.__init__(self, parent)
-
-        self.customer_type_dict = GetCustomerTypeDict()
 
         vbox = wx.BoxSizer(wx.VERTICAL)
 
         # 查询栏
         hbox1 = wx.BoxSizer(wx.HORIZONTAL)
-        self.customer_type = wx.StaticText(self, label=u'客户类型：')
-        hbox1.Add(self.customer_type, flag=wx.RIGHT, border=8)
-        self.customer_type_choice = wx.Choice(self)
-        hbox1.Add(self.customer_type_choice, flag=wx.RIGHT, border=8)
-        self.customer_name = wx.StaticText(self, label=u'客户名称：')
-        hbox1.Add(self.customer_name, flag=wx.RIGHT, border=8)
-        self.customer_name_text = wx.TextCtrl(self, size=wx.Size(150, -1))
-        hbox1.Add(self.customer_name_text, flag=wx.RIGHT, border=8)
-        self.customer_phone = wx.StaticText(self, label=u'电话：')
-        hbox1.Add(self.customer_phone, flag=wx.RIGHT, border=8)
-        self.customer_phone_text = wx.TextCtrl(self, size=wx.Size(150, -1))
-        hbox1.Add(self.customer_phone_text, flag=wx.RIGHT, border=8)
+        self.supplier_name = wx.StaticText(self, label=u'供应商名称：')
+        hbox1.Add(self.supplier_name, flag=wx.RIGHT, border=8)
+        self.supplier_name_text = wx.TextCtrl(self, size=wx.Size(150, -1))
+        hbox1.Add(self.supplier_name_text, flag=wx.RIGHT, border=8)
+        self.supplier_phone = wx.StaticText(self, label=u'电话：')
+        hbox1.Add(self.supplier_phone, flag=wx.RIGHT, border=8)
+        self.supplier_phone_text = wx.TextCtrl(self, size=wx.Size(150, -1))
+        hbox1.Add(self.supplier_phone_text, flag=wx.RIGHT, border=8)
         self.search_button = wx.Button(self, wx.ID_ANY, u"搜索", size=(45, 25))
         self.search_button.SetToolTipString(u"根据条件搜索")
         self.search_button.Bind(wx.EVT_BUTTON, self.button_search_click)
@@ -104,11 +50,11 @@ class CustomerPanel(wx.Panel):
         # 操作按钮栏
         hbox2 = wx.BoxSizer(wx.HORIZONTAL)
         self.add_button = wx.Button(self, wx.ID_ANY, u"添加", size=(70, 25))
-        self.add_button.SetToolTipString(u"添加客户")
+        self.add_button.SetToolTipString(u"添加供应商")
         self.add_button.Bind(wx.EVT_BUTTON, self.button_add_click)
         hbox2.Add(self.add_button, flag=wx.RIGHT, border=8)
         self.del_button = wx.Button(self, wx.ID_ANY, u"删除", size=(70, 25))
-        self.del_button.SetToolTipString(u"删除客户")
+        self.del_button.SetToolTipString(u"删除供应商")
         self.del_button.Bind(wx.EVT_BUTTON, self.button_del_click)
         hbox2.Add(self.del_button, flag=wx.RIGHT, border=8)
 
@@ -126,8 +72,6 @@ class CustomerPanel(wx.Panel):
 
         vbox.Add(self.m_grid1, 1, wx.ALL | wx.EXPAND, 5)
 
-        self.customer_type_choice.SetItems(GetDicTypeChoice(self.customer_type_dict))
-        self.customer_type_choice.SetStringSelection("")
         self.DrawTable()
 
         self.SetSizer(vbox)
@@ -135,14 +79,12 @@ class CustomerPanel(wx.Panel):
 
         self.Centre(wx.BOTH)
 
-    def GenQuerySql(self, customerId=None, customerType=None, customerName=None, customerPhone=None, offset=None,
-                    pageSize=None):
+    def GenQuerySql(self, supplierId=None, supplierName=None, supplierPhone=None, offset=None, pageSize=None):
         sql = "select " \
               "0 as selected, " \
-              "substr('A00000',0,7-length(customer_id))||customer_id as customerId, " \
-              "customer_name as customerName, " \
-              "customer_addr as customerAddr, " \
-              "customer_type as customerType, " \
+              "substr('S00000',0,7-length(supplier_id))||supplier_id as supplierId, " \
+              "supplier_name as supplierName, " \
+              "supplier_addr as supplierAddr, " \
               "phone_number as phoneNumber, " \
               "email, " \
               "remark, " \
@@ -151,18 +93,15 @@ class CustomerPanel(wx.Panel):
               "cby, " \
               "utime, " \
               "uby " \
-              "from customer where 1 = 1"
-        if customerType is not None:
-            sql += " and customer_type = " + str(customerType)
+              "from supplier where 1 = 1"
+        if supplierId is not None:
+            sql += " and supplier_id = " + str(supplierId)
 
-        if customerId is not None:
-            sql += " and customer_id = " + str(customerId)
+        if supplierName is not None:
+            sql += " and supplier_name like \'%%" + supplierName + "%%\'"
 
-        if customerName is not None:
-            sql += " and customer_name like \'%%" + customerName + "%%\'"
-
-        if customerPhone is not None:
-            sql += " and phone_number = '" + customerPhone + "'"
+        if supplierPhone is not None:
+            sql += " and phone_number = '" + supplierPhone + "'"
 
         if self.checkBox_status.GetValue():
             sql += " and status in (0,1)"
@@ -174,8 +113,6 @@ class CustomerPanel(wx.Panel):
         if offset is not None and pageSize is not None:
             sql += " limit " + str(offset) + "," + str(pageSize)
 
-        sql = "select t1.*, t2.dic_value as customerTypeName from (" + sql + ") t1 left join sys_dictionary t2 on t2.dic_key = t1.customerType"
-
         print(sql)
         return sql
 
@@ -183,29 +120,28 @@ class CustomerPanel(wx.Panel):
         self.button_search_click(evt)
 
     def button_add_click(self, evt):
-        dlg = CustomerDialog(None, title="新增客户信息")
+        dlg = SupplierDialog(None, title="新增供应商信息")
         res = dlg.ShowModal()
         if res == wx.ID_OK:
             db = sqliteUtil.EasySqlite()
             result = db.execute(self.GenQuerySql(offset=0, pageSize=1))
             self.m_grid1.InsertRows(data=result)
         dlg.Destroy()
-        # wx.MessageBox(u'添加客户成功', u'提示', wx.OK | wx.ICON_INFORMATION)
 
     def button_del_click(self, evt):
         rows = self.m_grid1.GetCheckedRows()
         if not rows:
-            wx.MessageBox(u'请勾选要删除的客户', u'错误', wx.OK | wx.ICON_ERROR)
+            wx.MessageBox(u'请勾选要删除的供应商', u'错误', wx.OK | wx.ICON_ERROR)
             return
 
         res = wx.MessageBox(u'确认要删除勾选的' + str(len(rows)) + '条数据吗', u'提示', wx.YES_NO | wx.ICON_INFORMATION)
         if res == wx.NO:
             return
         datas = self.m_grid1.GetGridData(rows=rows)
-        sql = "delete from customer where customer_id in ("
+        sql = "delete from supplier where supplier_id in ("
 
         for index, data in enumerate(datas):
-            id = int(data["customerId"].replace("A", ""))
+            id = int(data["supplierId"].replace("S", ""))
             sql += " " + str(id)
             if index < len(datas) - 1:
                 sql += ","
@@ -221,14 +157,12 @@ class CustomerPanel(wx.Panel):
             self.m_grid1.DeleteRows(pos=row)
 
     def button_clear_click(self, evt):
-        self.customer_type_choice.SetStringSelection("")
-        self.customer_name_text.SetValue("")
-        self.customer_phone_text.SetValue("")
+        self.supplier_name_text.SetValue("")
+        self.supplier_phone_text.SetValue("")
 
     def button_search_click(self, evt):
-        customerType = GetDicTypeByName(self.customer_type_dict, self.customer_type_choice.GetStringSelection())
-        name = self.customer_name_text.GetValue()
-        phone = self.customer_phone_text.GetValue()
+        name = self.supplier_name_text.GetValue()
+        phone = self.supplier_phone_text.GetValue()
 
         if name.strip() == '':
             name = None
@@ -236,7 +170,7 @@ class CustomerPanel(wx.Panel):
             phone = None
 
         db = sqliteUtil.EasySqlite()
-        result = db.execute(self.GenQuerySql(customerType=customerType, customerName=name, customerPhone=phone))
+        result = db.execute(self.GenQuerySql(supplierName=name, supplierPhone=phone))
         self.m_grid1.ReDrawTable(result)
 
     def DrawTable(self):
@@ -255,7 +189,6 @@ class CustomerPanel(wx.Panel):
         self.m_grid1.DrawTable(qtable.GridData(self.m_grid1, columns, result))
 
     def update(self, event):
-        print("Test1")
         row = self.m_grid1.GetGridCursorRow()
         if row is None:
             wx.MessageBox(u'请先点击要查看/编辑的行', u'错误', wx.OK | wx.ICON_ERROR)
@@ -264,12 +197,12 @@ class CustomerPanel(wx.Panel):
         list = self.m_grid1.GetGridData(rows=[row])
         if list:
             data = list[0]
-            dlg = CustomerDialog(None, "查看/修改客户信息", data=data, style=SAVE_NO)
+            dlg = SupplierDialog(None, "查看/修改供应商信息", data=data, style=SAVE_NO)
             res = dlg.ShowModal()
             if res == wx.ID_OK:
-                id = int(data["customerId"].replace("A", ""))
+                id = int(data["supplierId"].replace("S", ""))
                 db = sqliteUtil.EasySqlite()
-                result = db.execute(self.GenQuerySql(customerId=id))
+                result = db.execute(self.GenQuerySql(supplierId=id))
                 # 更新表格数据
                 if result:
                     self.m_grid1.RefreshRows([row], data=result)
@@ -281,10 +214,10 @@ class CustomerPanel(wx.Panel):
     def invalid_status(self, evt):
         rows = self.m_grid1.GetCheckedRows()
         if not rows:
-            wx.MessageBox(u'请勾选要失效的客户', u'错误', wx.OK | wx.ICON_ERROR)
+            wx.MessageBox(u'请勾选要失效的供应商', u'错误', wx.OK | wx.ICON_ERROR)
             return
 
-        res = wx.MessageBox(u'确认要失效勾选的' + str(len(rows)) + '条客户吗', u'提示', wx.YES_NO | wx.ICON_INFORMATION)
+        res = wx.MessageBox(u'确认要失效勾选的' + str(len(rows)) + '条供应商吗', u'提示', wx.YES_NO | wx.ICON_INFORMATION)
         if res == wx.NO:
             return
         self.set_status(rows, 0)
@@ -292,10 +225,10 @@ class CustomerPanel(wx.Panel):
     def valid_status(self, evt):
         rows = self.m_grid1.GetCheckedRows()
         if not rows:
-            wx.MessageBox(u'请勾选要有效的客户', u'错误', wx.OK | wx.ICON_ERROR)
+            wx.MessageBox(u'请勾选要有效的供应商', u'错误', wx.OK | wx.ICON_ERROR)
             return
 
-        res = wx.MessageBox(u'确认要有效勾选的' + str(len(rows)) + '条客户吗', u'提示', wx.YES_NO | wx.ICON_INFORMATION)
+        res = wx.MessageBox(u'确认要有效勾选的' + str(len(rows)) + '条供应商吗', u'提示', wx.YES_NO | wx.ICON_INFORMATION)
         if res == wx.NO:
             return
         self.set_status(rows, 1)
@@ -303,11 +236,11 @@ class CustomerPanel(wx.Panel):
     def set_status(self, rows, status):
         datas = self.m_grid1.GetGridData(rows=rows)
 
-        sql = "update customer set status = ? where customer_id in ("
+        sql = "update supplier set status = ? where supplier_id in ("
         for index, data in enumerate(datas):
             data["status"] = status
 
-            sql += " " + str(int(data["customerId"].replace("A", "")))
+            sql += " " + str(int(data["supplierId"].replace("S", "")))
             if index < len(datas) - 1:
                 sql += ","
 
@@ -326,7 +259,7 @@ class CustomerPanel(wx.Panel):
             self.m_grid1.RefreshRows(rows, datas)
 
 
-class CustomerDialog(wx.Dialog):
+class SupplierDialog(wx.Dialog):
     def __init__(self, parent, title, data=None, style=YES_NO):
         wx.Dialog.__init__(self, parent, size=(600, 500), title=title)
         panel = wx.Panel(self)
@@ -378,28 +311,23 @@ class CustomerDialog(wx.Dialog):
     def button_add_click(self, evt):
         name = self.page1.tc_name.GetValue()
         if name.strip() == '':
-            wx.MessageBox(u'请输入客户名称', u'错误', wx.OK | wx.ICON_ERROR)
+            wx.MessageBox(u'请输入供应商名称', u'错误', wx.OK | wx.ICON_ERROR)
             return
-        customerType = GetDicTypeByName(self.page1.customer_type_dict,
-                                        self.page1.customer_type_choice.GetStringSelection())
         addr = self.page1.tc_addr.GetValue()
         phone = self.page1.tc_phone.GetValue()
         email = self.page1.tc_email.GetValue()
         remark = self.page1.tc_remark.GetValue()
         db = sqliteUtil.EasySqlite()
         db.execute(
-            "insert into customer(customer_type, customer_name, customer_addr, phone_number, email, remark, ctime, cby, utime, uby) values(?, ?, ?, ?, ?, ?, datetime('now'),'',datetime('now'),'')",
-            [customerType, name, addr, phone, email, remark])
+            "insert into supplier(supplier_name, supplier_addr, phone_number, email, remark, ctime, cby, utime, uby) values('" + name + "','" + addr + "','" + phone + "','" + email + "','" + remark + "',datetime('now'),'',datetime('now'),'')")
         self.EndModal(wx.ID_OK)
 
     def button_update_click(self, evt):
         name = self.page1.tc_name.GetValue()
         if name.strip() == '':
-            wx.MessageBox(u'请输入客户名称', u'错误', wx.OK | wx.ICON_ERROR)
+            wx.MessageBox(u'请输入供应商名称', u'错误', wx.OK | wx.ICON_ERROR)
             return
-        id = int(self.page1.tc_id.GetValue().replace("A", ""))
-        customerType = GetDicTypeByName(self.page1.customer_type_dict,
-                                        self.page1.customer_type_choice.GetStringSelection())
+        id = int(self.page1.tc_id.GetValue().replace("S", ""))
         addr = self.page1.tc_addr.GetValue()
         phone = self.page1.tc_phone.GetValue()
         email = self.page1.tc_email.GetValue()
@@ -407,8 +335,8 @@ class CustomerDialog(wx.Dialog):
 
         db = sqliteUtil.EasySqlite()
         db.execute(
-            "update customer set customer_type = ?, customer_name = ?, customer_addr = ?, phone_number = ?, email = ?, remark = ?, utime = datetime('now') where customer_id = ?",
-            [customerType, name, addr, phone, email, remark, id])
+            "update supplier set supplier_name = ?, supplier_addr = ?, phone_number = ?, email = ?, remark = ?, utime = datetime('now') where supplier_id = ?",
+            [name, addr, phone, email, remark, id])
         self.EndModal(wx.ID_OK)
 
 
@@ -417,68 +345,55 @@ class BaseInfoPage(wx.Panel):
         wx.Panel.__init__(self, parent)
 
         self.data = data
-        self.customer_type_dict = GetCustomerTypeDict()
 
         vbox = wx.BoxSizer(wx.VERTICAL)
 
         if self.data:
-            id = wx.StaticText(self, label=u'客户编号')
-            customerType = wx.StaticText(self, label=u'客户类型')
-            name = wx.StaticText(self, label=u'客户名称 *')
-            addr = wx.StaticText(self, label=u'客户地址')
+            id = wx.StaticText(self, label=u'供应商编号')
+            name = wx.StaticText(self, label=u'供应商名称 *')
+            addr = wx.StaticText(self, label=u'供应商地址')
             phone = wx.StaticText(self, label=u'电话号码')
             email = wx.StaticText(self, label=u'电子邮箱')
             remark = wx.StaticText(self, label=u'备 注')
 
-            self.tc_id = wx.TextCtrl(self, value=self.data["customerId"], style=wx.TE_READONLY)
-            self.customer_type_choice = wx.Choice(self)
-            self.customer_type_choice.SetItems(GetDicTypeChoice(self.customer_type_dict, blank=False))
-            self.customer_type_choice.SetStringSelection(self.data["customerTypeName"])
-            self.tc_name = wx.TextCtrl(self, value=self.data["customerName"])
-            self.tc_addr = wx.TextCtrl(self, value=self.data["customerAddr"], style=wx.TE_MULTILINE)
+            self.tc_id = wx.TextCtrl(self, value=self.data["supplierId"], style=wx.TE_READONLY)
+            self.tc_name = wx.TextCtrl(self, value=self.data["supplierName"])
+            self.tc_addr = wx.TextCtrl(self, value=self.data["supplierAddr"], style=wx.TE_MULTILINE)
             self.tc_phone = wx.TextCtrl(self, value=self.data["phoneNumber"])
             self.tc_email = wx.TextCtrl(self, value=self.data["email"])
             self.tc_remark = wx.TextCtrl(self, value=self.data["remark"], style=wx.TE_MULTILINE)
 
-            fgs = wx.FlexGridSizer(7, 2, 9, 25)
-            fgs.AddMany(
-                [(id), (self.tc_id, 1, wx.EXPAND), (customerType), (self.customer_type_choice, 1, wx.EXPAND), (name),
-                 (self.tc_name, 1, wx.EXPAND), (addr),
-                 (self.tc_addr, 1, wx.EXPAND), (phone), (self.tc_phone, 1, wx.EXPAND),
-                 (email), (self.tc_email, 1, wx.EXPAND), (remark),
-                 (self.tc_remark, 1, wx.EXPAND)])
+            fgs = wx.FlexGridSizer(6, 2, 9, 25)
+            fgs.AddMany([(id), (self.tc_id, 1, wx.EXPAND), (name), (self.tc_name, 1, wx.EXPAND), (addr),
+                         (self.tc_addr, 1, wx.EXPAND), (phone), (self.tc_phone, 1, wx.EXPAND),
+                         (email), (self.tc_email, 1, wx.EXPAND), (remark),
+                         (self.tc_remark, 1, wx.EXPAND)])
 
-            fgs.AddGrowableRow(6, 1)
+            fgs.AddGrowableRow(5, 1)
             fgs.AddGrowableCol(1, 1)
 
             vbox.Add(fgs, proportion=1, flag=wx.ALL | wx.EXPAND, border=15)
         else:
-            customerType = wx.StaticText(self, label=u'客户类型')
-            name = wx.StaticText(self, label=u'客户名称 *')
-            addr = wx.StaticText(self, label=u'客户地址')
+            name = wx.StaticText(self, label=u'供应商名称 *')
+            addr = wx.StaticText(self, label=u'供应商地址')
             phone = wx.StaticText(self, label=u'电话号码')
             email = wx.StaticText(self, label=u'电子邮箱')
             remark = wx.StaticText(self, label=u'备 注')
 
             self.tc_name = wx.TextCtrl(self)
-            self.customer_type_choice = wx.Choice(self)
-            self.customer_type_choice.SetItems(GetDicTypeChoice(self.customer_type_dict, blank=False))
-            self.customer_type_choice.SetSelection(0)
             self.tc_addr = wx.TextCtrl(self, style=wx.TE_MULTILINE)
             self.tc_phone = wx.TextCtrl(self)
             self.tc_email = wx.TextCtrl(self)
             self.tc_remark = wx.TextCtrl(self, style=wx.TE_MULTILINE)
 
-            fgs = wx.FlexGridSizer(6, 2, 9, 25)
+            fgs = wx.FlexGridSizer(5, 2, 9, 25)
 
-            fgs.AddMany(
-                [(customerType), (self.customer_type_choice, 1, wx.EXPAND), (name), (self.tc_name, 1, wx.EXPAND),
-                 (addr),
-                 (self.tc_addr, 1, wx.EXPAND), (phone), (self.tc_phone, 1, wx.EXPAND),
-                 (email), (self.tc_email, 1, wx.EXPAND), (remark),
-                 (self.tc_remark, 1, wx.EXPAND)])
+            fgs.AddMany([(name), (self.tc_name, 1, wx.EXPAND), (addr),
+                         (self.tc_addr, 1, wx.EXPAND), (phone), (self.tc_phone, 1, wx.EXPAND),
+                         (email), (self.tc_email, 1, wx.EXPAND), (remark),
+                         (self.tc_remark, 1, wx.EXPAND)])
 
-            fgs.AddGrowableRow(5, 1)
+            fgs.AddGrowableRow(4, 1)
             fgs.AddGrowableCol(1, 1)
 
             vbox.Add(fgs, proportion=1, flag=wx.ALL | wx.EXPAND, border=15)
