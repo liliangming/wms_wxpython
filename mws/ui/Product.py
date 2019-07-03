@@ -79,6 +79,21 @@ def IsProductCodeExist(productId, productCode):
     return result
 
 
+def IsAttrNameExist(productId, attrId, attrName):
+    sql = "select 1 from product_attr where attr_name = '" + attrName + "'"
+
+    if productId:
+        sql += " and product_id = " + str(productId)
+
+    if attrId:
+        sql += " and attr_id != " + str(attrId)
+
+    db = sqliteUtil.EasySqlite()
+    result = db.execute(sql)
+
+    return result
+
+
 # 字节bytes转化kb\m\g
 def formatSize(bytes):
     try:
@@ -564,9 +579,9 @@ class ProductAttachPage(wx.Panel):
 
         self.list = checkList.CheckListCtrl(self)
         self.list.SetSize(wx.Size(800, 800))
-        self.list.InsertColumn(0, u'文件名称', width=140)
+        self.list.InsertColumn(0, u'文件名称', width=180)
         self.list.InsertColumn(1, u'文件大小')
-        self.list.InsertColumn(2, u'上传时间')
+        self.list.InsertColumn(2, u'上传时间', width=140)
         self.list.InsertColumn(3, u'备注')
 
         self.list.Bind(wx.EVT_LIST_ITEM_ACTIVATED, self.OnDclick)
@@ -599,6 +614,8 @@ class ProductAttachPage(wx.Panel):
         self.SetSizer(vbox)
 
     def DrawList(self):
+        self.list.DeleteAllItems()
+
         sql = "select attach_id as attachId, " \
               "product_id as productId, " \
               "attach_name as attachName, " \
@@ -621,8 +638,6 @@ class ProductAttachPage(wx.Panel):
                 self.list.SetItem(index, 1, data["attachSize"])
                 self.list.SetItem(index, 2, data["ctime"])
                 self.list.SetItem(index, 3, data["remark"])
-        else:
-            self.list.ClearAll()
 
     def OnDclick(self, evt):
         os.startfile(self.product_attach[evt.GetItem().GetId()]["attachPath"])
@@ -631,15 +646,6 @@ class ProductAttachPage(wx.Panel):
         num = self.list.GetItemCount()
         for i in range(num):
             self.list.CheckItem(i, self.checkBox_all.GetValue())
-
-    def GetCheckedItems(self):
-        rows = []
-        num = self.list.GetItemCount()
-        for i in range(num):
-            if self.list.IsChecked(i):
-                rows.append(i)
-
-        return rows
 
     def button_upload_click(self, evt):
         dlg = wx.FileDialog(self, message=u"选择文件",
@@ -650,41 +656,153 @@ class ProductAttachPage(wx.Panel):
         if dlg.ShowModal() == wx.ID_OK:
             paths = dlg.GetPaths()
             productId = str(self.data["productId"])
+
+            exist_dict = self.GetExistAttach(productId, paths)
+            isCover = True
+            if exist_dict:
+                message = u'以下文件已存在，是否覆盖：\n'
+                for filename in exist_dict.keys():
+                    message += "\t " + filename + "\n"
+                res = wx.MessageBox(message, u'错误', wx.YES_NO | wx.ICON_INFORMATION)
+                if res == wx.NO:
+                    isCover = False
+
             root = os.path.join(os.getcwd(), "upload", "product", productId)
             if not os.path.exists(root):
                 os.makedirs(root)
+
+            # 显示进度条
+            progressMax = 100
+            size = progressMax / len(paths)
+            dialog = wx.ProgressDialog(u"下载文件", u"正在下载文件，请稍后", progressMax)
+            count = 0
             for path in paths:
+                filename = os.path.basename(path)
+
+                count = count + size
+                dialog.Update(count, u"正在上传文件：" + filename)
+
+                if exist_dict.keys().__contains__(filename) and not isCover:
+                    continue
+                elif exist_dict.keys().__contains__(filename):
+                    # 先删除文件
+                    os.remove(exist_dict[filename]["attach_path"])
+
+                    # 删除数据
+                    db = sqliteUtil.EasySqlite()
+                    db.execute(
+                        "delete from product_attach where product_id = ? and attach_name = ?",
+                        [productId, filename])
+
                 newPath = shutil.copy(path, root)
                 db = sqliteUtil.EasySqlite()
                 db.execute(
                     "insert into product_attach(product_id, attach_name, attach_path, attach_size, remark, ctime, cby, utime, uby) values(?, ?, ?, ?, '', datetime('now'), '', datetime('now'), '')",
-                    [productId, os.path.basename(path), newPath, formatSize(os.path.getsize(path))])
+                    [productId, filename, newPath, formatSize(os.path.getsize(path))])
             self.DrawList()
+            dialog.Update(100, u"上传完成!")
         dlg.Destroy()
 
+    def GetExistAttach(self, productId, paths):
+        db = sqliteUtil.EasySqlite()
+        result = db.execute(
+            "select attach_id, attach_name, attach_path from product_attach where product_id = ?",
+            [productId])
+        attachDict = {}
+        for attachInfo in result:
+            attachDict[attachInfo["attach_name"]] = attachInfo
+
+        exist_dict = {}
+        for path in paths:
+            filename = os.path.basename(path)
+            if attachDict.keys().__contains__(filename):
+                exist_dict[filename] = attachDict[filename]
+
+        return exist_dict
+
     def button_download_click(self, evt):
-        rows = self.GetCheckedItems()
+        rows = self.list.GetCheckedItems()
         if not rows:
             wx.MessageBox(u'请勾选要下载的附件', u'错误', wx.OK | wx.ICON_ERROR)
             return
 
+        dlg = wx.DirDialog(self, u"选择保存位置", style=wx.DD_DEFAULT_STYLE)
+        dir = None
+        if dlg.ShowModal() == wx.ID_OK:
+            dir = dlg.GetPath()
+        dlg.Destroy()
+
+        if not dir:
+            return
+
+        exit_file = {}
+        for row in rows:
+            item = self.product_attach[row]
+
+            if os.path.exists(os.path.join(dir, item["attachName"])):
+                exit_file[item["attachName"]] = item
+
+        isCover = False
+        if exit_file:
+            message = "以下文件已存在，是否覆盖？\n"
+            for filename in exit_file.keys():
+                message += " " + filename + "\n"
+
+            res = wx.MessageBox(message, u'提示', wx.YES_NO | wx.ICON_INFORMATION)
+            if res == wx.YES:
+                isCover = True
+
+        # 显示进度条
+        progressMax = 100
+        size = progressMax / len(rows)
+        dialog = wx.ProgressDialog(u"下载文件", u"正在下载文件，请稍后", progressMax)
+        count = 0
+        for row in rows:
+            item = self.product_attach[row]
+
+            count = count + size
+            dialog.Update(count, u"正在下载文件：" + item["attachName"])
+
+            if exit_file.keys().__contains__(item["attachName"]) and not isCover:
+                continue
+
+            shutil.copy(item["attachPath"], dir)
+
+        dialog.Update(100, u"下载完成!")
+        res = wx.MessageBox(u'下载完成，是否打开所在文件夹？', u'提示', wx.YES_NO | wx.ICON_INFORMATION)
+        if res == wx.YES:
+            os.system("explorer.exe %s" % dir)
+
     def button_del_click(self, evt):
-        rows = self.GetCheckedItems()
+        rows = self.list.GetCheckedItems()
         if not rows:
             wx.MessageBox(u'请勾选要删除的附件', u'错误', wx.OK | wx.ICON_ERROR)
             return
 
+        res = wx.MessageBox(u'确认要删除勾选的' + str(len(rows)) + "个附件吗？", u'提示', wx.YES_NO | wx.ICON_INFORMATION)
+        if res == wx.NO:
+            return
 
-packages = [('abiword', '5.8M', 'base'), ('adie', '145k', 'base'),
-            ('airsnort', '71k', 'base'), ('ara', '717k', 'base'), ('arc', '139k', 'base'),
-            ('asc', '5.8M', 'base'), ('ascii', '74k', 'base'), ('ash', '74k', 'base'), ('ash', '74k', 'base'),
-            ('ash', '74k', 'base'), ('ash', '74k', 'base'), ('ash', '74k', 'base'), ('ash', '74k', 'base')]
+        for row in rows:
+            item = self.product_attach[row]
+
+            # 先删除文件
+            os.remove(item["attachPath"])
+
+            # 删除数据
+            db = sqliteUtil.EasySqlite()
+            db.execute(
+                "delete from product_attach where product_id = ? and attach_name = ?",
+                [item["productId"], item["attachName"]])
+
+        self.DrawList()
 
 
 class ProductAttrPage(wx.Panel):
     def __init__(self, parent, data):
         wx.Panel.__init__(self, parent)
         self.data = data
+        self.product_attr = []
 
         vbox = wx.BoxSizer(wx.VERTICAL)
 
@@ -694,32 +812,179 @@ class ProductAttrPage(wx.Panel):
 
         self.list = checkList.CheckListCtrl(self)
         self.list.SetSize(wx.Size(800, 800))
-        self.list.InsertColumn(0, u'属性名称')
-        self.list.InsertColumn(1, u'属性值')
-        self.list.InsertColumn(2, u'备注')
+        self.list.InsertColumn(0, u'属性名称', width=180)
+        self.list.InsertColumn(1, u'属性值', width=180)
+        self.list.InsertColumn(2, u'备注', width=140)
 
-        # idx = 0
-        #
-        # for i in packages:
-        #     index = self.list.InsertItem(idx, i[0])
-        #     self.list.SetItem(index, 1, i[1])
-        #     self.list.SetItem(index, 2, i[2])
-        #     idx += 1
+        self.list.Bind(wx.EVT_LIST_ITEM_ACTIVATED, self.OnDclick)
+        self.DrawList()
 
         vbox.Add(self.list, 1,
                  wx.EXPAND | wx.TOP | wx.BOTTOM, 5)
         hbox1 = wx.BoxSizer(wx.HORIZONTAL)
-        self.checkBox_status = wx.CheckBox(self, -1, u'全选', pos=(10, 10))
-        hbox1.Add(self.checkBox_status, flag=wx.RIGHT, border=10)
+        self.checkBox_all = wx.CheckBox(self, -1, u'全选', pos=(10, 10))
+        self.checkBox_all.Bind(wx.EVT_CHECKBOX, self.checkBox_all_change)
+        hbox1.Add(self.checkBox_all, flag=wx.RIGHT, border=10)
         vbox.Add(hbox1, flag=wx.EXPAND | wx.LEFT, border=5)
 
         hbox2 = wx.BoxSizer(wx.HORIZONTAL)
-        self.upload_button = wx.Button(self, wx.ID_ANY, u"新增", size=(70, 25))
-        self.upload_button.SetToolTipString(u"新增")
-        hbox2.Add(self.upload_button, flag=wx.RIGHT | wx.LEFT, border=10)
+        self.add_button = wx.Button(self, wx.ID_ANY, u"新增", size=(70, 25))
+        self.add_button.SetToolTipString(u"新增属性")
+        self.add_button.Bind(wx.EVT_BUTTON, self.button_add_click)
+        hbox2.Add(self.add_button, flag=wx.RIGHT | wx.LEFT, border=10)
         self.del_button = wx.Button(self, wx.ID_ANY, u"删除", size=(70, 25))
         self.del_button.SetToolTipString(u"删除选择的属性")
+        self.del_button.Bind(wx.EVT_BUTTON, self.button_del_click)
         hbox2.Add(self.del_button, flag=wx.RIGHT | wx.LEFT, border=10)
         vbox.Add(hbox2, flag=wx.EXPAND | wx.ALL, border=20)
 
         self.SetSizer(vbox)
+
+    def DrawList(self):
+        self.list.DeleteAllItems()
+
+        sql = "select attr_id as attrId, " \
+              "product_id as productId, " \
+              "attr_name as attrName, " \
+              "attr_value as attrValue, " \
+              "sort_no as sortNo, " \
+              "remark as remark, " \
+              "ctime, " \
+              "cby, " \
+              "utime, " \
+              "uby " \
+              "from product_attr where product_id = ? order by sort_no, ctime desc"
+        print(sql)
+        db = sqliteUtil.EasySqlite()
+        result = db.execute(sql, str(self.data["productId"]))
+
+        self.product_attr = result
+        if result:
+            for idx, data in enumerate(result):
+                index = self.list.InsertItem(idx, data["attrName"])
+                self.list.SetItem(index, 1, data["attrValue"])
+                self.list.SetItem(index, 2, data["remark"])
+
+    def OnDclick(self, evt):
+        dlg = AttrDialog(parent=None, title="修改属性", product=self.data, attr=self.product_attr[evt.GetItem().GetId()])
+        res = dlg.ShowModal()
+        if res == wx.ID_OK:
+            self.DrawList()
+        dlg.Destroy()
+
+    def checkBox_all_change(self, evt):
+        num = self.list.GetItemCount()
+        for i in range(num):
+            self.list.CheckItem(i, self.checkBox_all.GetValue())
+
+    def button_add_click(self, evt):
+        dlg = AttrDialog(parent=None, title="新增属性", product=self.data, attr=None)
+        res = dlg.ShowModal()
+        if res == wx.ID_OK:
+            self.DrawList()
+        dlg.Destroy()
+
+    def button_del_click(self, evt):
+        rows = self.list.GetCheckedItems()
+        if not rows:
+            wx.MessageBox(u'请勾选要删除的属性', u'错误', wx.OK | wx.ICON_ERROR)
+            return
+
+        res = wx.MessageBox(u'确认要删除勾选的' + str(len(rows)) + "个属性吗？", u'提示', wx.YES_NO | wx.ICON_INFORMATION)
+        if res == wx.NO:
+            return
+
+        for row in rows:
+            item = self.product_attr[row]
+
+            # 删除数据
+            db = sqliteUtil.EasySqlite()
+            db.execute(
+                "delete from product_attr where attr_id = ?",
+                [item["attrId"]])
+
+        self.DrawList()
+
+
+class AttrDialog(wx.Dialog):
+    def __init__(self, parent, title, product, attr):
+        wx.Dialog.__init__(self, parent, size=(350, 250), title=title)
+        self.product = product
+        self.attr = attr
+
+        panel = wx.Panel(self)
+
+        vbox = wx.BoxSizer(wx.VERTICAL)
+
+        attrName = wx.StaticText(panel, label=u'属性名称 *')
+        self.tc_attrName = wx.TextCtrl(panel, size=(180, -1))
+        attrValue = wx.StaticText(panel, label=u'属性值 *')
+        self.tc_attrValue = wx.TextCtrl(panel, size=(180, -1))
+        attrRemark = wx.StaticText(panel, label=u'备 注')
+        self.tc_attrRemark = wx.TextCtrl(panel, style=wx.TE_MULTILINE)
+
+        if self.attr:
+            self.tc_attrName.SetValue(self.attr["attrName"])
+            self.tc_attrValue.SetValue(self.attr["attrValue"])
+            self.tc_attrRemark.SetValue(self.attr["remark"])
+
+        fgs = wx.FlexGridSizer(3, 2, 9, 25)
+        fgs.AddMany(
+            [(attrName), (self.tc_attrName, 1, wx.EXPAND),
+             (attrValue), (self.tc_attrValue, 1, wx.EXPAND),
+             (attrRemark), (self.tc_attrRemark, 1, wx.EXPAND)])
+
+        fgs.AddGrowableRow(2, 1)
+        fgs.AddGrowableCol(1, 1)
+
+        vbox.Add(fgs, proportion=1, flag=wx.ALL | wx.EXPAND, border=15)
+
+        self.save_button = wx.Button(panel, wx.ID_OK, u"保存", size=(70, 25))
+        self.save_button.Bind(wx.EVT_BUTTON, self.button_save_click)
+        self.cancel_button = wx.Button(panel, wx.ID_CANCEL, u"取消", size=(70, 25))
+
+        btnSizer = wx.BoxSizer(wx.HORIZONTAL)
+        btnSizer.Add((20, 20), 1)
+        btnSizer.Add(self.save_button)
+        btnSizer.Add((20, 20), 1)
+        btnSizer.Add(self.cancel_button)
+        btnSizer.Add((20, 20), 1)
+        vbox.Add(btnSizer, 0, wx.EXPAND | wx.BOTTOM | wx.TOP, 15)
+
+        panel.SetSizer(vbox)
+        self.Center()
+
+    def button_save_click(self, evt):
+        attrName = self.tc_attrName.GetValue()
+        if attrName.strip() == '':
+            wx.MessageBox(u'请输入属性名称', u'错误', wx.OK | wx.ICON_ERROR)
+            return
+
+        productId = self.product["productId"]
+        attrId = None
+        if self.attr:
+            attrId = self.attr["attrId"]
+
+        if IsAttrNameExist(productId, attrId, attrName):
+            wx.MessageBox(u'属性名称已存在，请检查', u'错误', wx.OK | wx.ICON_ERROR)
+            return
+
+        attrValue = self.tc_attrValue.GetValue()
+        if attrValue.strip() == '':
+            wx.MessageBox(u'请输入属性值', u'错误', wx.OK | wx.ICON_ERROR)
+            return
+
+        attrRemark = self.tc_attrRemark.GetValue()
+
+        if self.attr:
+            db = sqliteUtil.EasySqlite()
+            db.execute(
+                "update product_attr set attr_name = ?, attr_value = ?, remark = ?, utime = datetime('now') where attr_id = ?",
+                [attrName, attrValue, attrRemark, attrId])
+        else:
+            db = sqliteUtil.EasySqlite()
+            db.execute(
+                "insert into product_attr(product_id, attr_name, attr_value, remark, sort_no, ctime, cby, utime, uby) values(?, ?, ?, ?, (select ifnull(max(sort_no),0)+1 from product_attr where product_id = ?),datetime('now'),'',datetime('now'),'')",
+                [productId, attrName, attrValue, attrRemark, productId])
+
+        self.EndModal(wx.ID_OK)

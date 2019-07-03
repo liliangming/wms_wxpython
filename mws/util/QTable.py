@@ -448,10 +448,8 @@ class QGridTable(gridlib.Grid):
                       gridlib.GridCellBoolRenderer) and not self.IsReadOnly(evt.GetRow(), evt.GetCol()):
             value = self.GetCellValue(evt.GetRow(), evt.GetCol())
             if not bool(value) or value == "0":
-                # self.SetCellValue(evt.GetRow(), evt.GetCol(), "1")
                 self.SetCheckedRows([evt.GetRow()], True)
             else:
-                # self.SetCellValue(evt.GetRow(), evt.GetCol(), "0")
                 self.SetCheckedRows([evt.GetRow()], False)
         else:
             evt.Skip()
