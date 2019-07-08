@@ -10,6 +10,8 @@ from ui.Dictionary import DictionaryPanel
 from ui.StoreHouse import StoreHousePanel
 from ui.StoreHouseLocation import StoreHouseLocationPanel
 from ui.Product import ProductPanel
+from ui.OutStoreHouse import OutStoreHousePanel
+from ui.InStoreHouse import InStoreHousePanel
 
 welcome_content = "商品信息管理系统"
 login_content = "登陆"
@@ -26,7 +28,7 @@ tree_item_instance_key = "item"
 
 class MainFrame(wx.Frame):
     def __init__(self, parent, user):
-        wx.Frame.__init__(self, parent, id=wx.ID_ANY, title="sdsdsd", pos=wx.DefaultPosition, size=wx.Size(1078, 800),
+        wx.Frame.__init__(self, parent, id=wx.ID_ANY, title="sdsdsd", pos=wx.DefaultPosition, size=wx.Size(1500, 900),
                           style=wx.DEFAULT_FRAME_STYLE | wx.TAB_TRAVERSAL)
         self.user = user
 

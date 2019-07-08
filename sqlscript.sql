@@ -146,3 +146,34 @@ cby varchar(50),
 utime datetime,
 uby varchar(50)
 );
+
+drop table out_storehouse;
+create table out_storehouse
+(
+order_no varchar(50) primary key,
+order_type varchar(10),
+customer_id integer,
+sh_id  integer,
+order_status varchar(10),
+order_agent varchar(100),
+order_desc varchar(200),
+remark varchar(200),
+ctime datetime,
+cby varchar(50),
+utime datetime,
+uby varchar(50)
+);
+
+drop table out_storehouse_product;
+create table out_storehouse_product
+(
+order_no varchar(50),
+product_id integer,
+sl_id varchar(50),
+quantity integer,
+remark varchar(200),
+ctime datetime,
+cby varchar(50),
+utime datetime,
+uby varchar(50)
+);
